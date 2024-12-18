@@ -11,7 +11,10 @@ mkdir -p "$WORK_DIR/results/han"
 mkdir -p "$WORK_DIR/pipeline_info"
 mkdir -p "$WORK_DIR/nextflow_logs"
 
-# Change to work directory so Nextflow logs go there
+# Set Nextflow home to work directory to contain all Nextflow-related files
+export NXF_HOME="$WORK_DIR/nextflow_logs"
+
+# Change to work directory
 cd $WORK_DIR
 
 # Launch the Nextflow pipeline
@@ -24,12 +27,11 @@ nextflow run "$REPO_DIR/bin/ryans_helpers/han_pipeline.nf" \
     -with-trace "$WORK_DIR/pipeline_info/trace.txt" \
     -with-timeline "$WORK_DIR/pipeline_info/timeline.html" \
     -with-report "$WORK_DIR/pipeline_info/report.html" \
-    -with-dag "$WORK_DIR/pipeline_info/dag.html" \
-    -log "$WORK_DIR/nextflow_logs/nextflow.log"
+    -with-dag "$WORK_DIR/pipeline_info/dag.html"
 
 # Check if pipeline submission was successful
 if [ $? -eq 0 ]; then
     echo "Pipeline successfully submitted. Check status with 'squeue -u $USER'"
 else
-    echo "Pipeline submission failed. Check logs in $WORK_DIR/nextflow_logs/"
+    echo "Pipeline submission failed. Check logs in $WORK_DIR/nextflow_logs/.nextflow.log"
 fi
