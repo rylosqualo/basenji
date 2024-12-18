@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+nextflow.enable.dsl=2
+
 /*
  * HAN (Hierarchical Attention Network) Pipeline for Genomic Sequence Analysis
  * 
@@ -18,6 +20,7 @@
 
 // Pipeline parameter defaults
 params.output_base = "/clusterfs/nilah/ryank/proj/compartments/20241218_HAN_basenji"
+params.basenji_data = "${params.output_base}/data/basenji"
 params.data_dir = "${params.output_base}/data/processed_han"
 params.model_dir = "${params.output_base}/models/han"
 params.results_dir = "${params.output_base}/results/han"
@@ -30,11 +33,28 @@ params.phrase_gru_size = 64
 params.sent_gru_size = 64
 params.num_targets = 1
 
-// Create channel for input data
-Channel
-    .fromPath("${params.data_dir}")
-    .ifEmpty { error "No input data directory found at: ${params.data_dir}" }
-    .set { input_data }
+/*
+ * Process 0: Prepare Data
+ * This process converts Basenji TFRecord data into the format needed for HAN
+ */
+process prepare_data {
+    publishDir "${params.data_dir}", mode: 'copy'
+    
+    input:
+    path basenji_data
+    
+    output:
+    path "processed/*"
+    
+    script:
+    """
+    python ${baseDir}/convert_basenji_data.py \
+        --input-dir ${basenji_data} \
+        --output-dir processed \
+        --sequence-length 131072 \
+        --center-window-size 128
+    """
+}
 
 /*
  * Process 1: Train the HAN model
@@ -44,12 +64,12 @@ process train_model {
     publishDir "${params.model_dir}", mode: 'copy'
     
     input:
-    path data_dir from input_data
+    path data_dir
     
     output:
-    path "checkpoints/*" into model_checkpoints
-    path "TRAINING_COMPLETED" into training_completed
-    path "metrics.jsonl" into training_metrics
+    path "checkpoints/*"
+    path "TRAINING_COMPLETED"
+    path "metrics.jsonl"
     
     script:
     """
@@ -75,10 +95,10 @@ process generate_plots {
     publishDir "${params.results_dir}/plots", mode: 'copy'
     
     input:
-    path metrics from training_metrics
+    path metrics
     
     output:
-    path "*.png" into performance_plots
+    path "*.png"
     
     script:
     """
@@ -96,12 +116,12 @@ process evaluate_model {
     publishDir "${params.results_dir}", mode: 'copy'
     
     input:
-    path model_dir from training_completed.map { it.parent }
-    path data_dir from input_data
+    path model_dir
+    path data_dir
     
     output:
-    path "evaluation_results.json" into eval_results
-    path "detailed_results.json" into detailed_results
+    path "evaluation_results.json"
+    path "detailed_results.json"
     
     script:
     """
@@ -127,10 +147,10 @@ process generate_report {
     
     input:
     path eval_results
-    path plots from performance_plots.collect()
+    path plots
     
     output:
-    path "report.html" into final_report
+    path "report.html"
     
     script:
     """
@@ -142,9 +162,13 @@ process generate_report {
 }
 
 workflow {
-    main:
-        train_model()
-        generate_plots(train_model.out[2])  // metrics.jsonl
-        evaluate_model(train_model.out[1].map { it.parent }, input_data)
-        generate_report(evaluate_model.out[0], generate_plots.out.collect())
+    // Create channel for input data
+    basenji_data = Channel.fromPath(params.basenji_data)
+    
+    // Main workflow
+    processed_data = prepare_data(basenji_data)
+    train_model(processed_data)
+    generate_plots(train_model.out[2])  // metrics.jsonl
+    evaluate_model(train_model.out[1].map { it.parent }, processed_data)
+    generate_report(evaluate_model.out[0], generate_plots.out.collect())
 } 
