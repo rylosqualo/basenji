@@ -8,6 +8,7 @@ mkdir -p $OUTPUT_DIR
 
 # Launch the Nextflow pipeline
 nextflow run bin/ryans_helpers/han_pipeline.nf \
+    -c bin/ryans_helpers/nextflow.config \
     -profile slurm \
     --output_base $OUTPUT_DIR \
     -resume
