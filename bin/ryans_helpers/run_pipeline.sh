@@ -1,26 +1,35 @@
 #!/bin/bash
 
-# Set the base directory
-BASE_DIR="/clusterfs/nilah/ryank/proj/compartments/20241218_HAN_basenji"
+# Set paths
+REPO_DIR="/clusterfs/nilah/ryank/proj/compartments/basenji"  # Source code and input data
+WORK_DIR="/clusterfs/nilah/ryank/proj/compartments/20241218_HAN_basenji"  # All outputs
 
-# Set directory paths
-BASENJI_DATA_DIR="$BASE_DIR/testdata/cage/tfrecord"
-DATA_DIR="$BASE_DIR/data/processed_han"
-MODEL_DIR="$BASE_DIR/models/han"
-RESULTS_DIR="$BASE_DIR/results/han"
+# Create output directories
+mkdir -p "$WORK_DIR/data/processed_han"
+mkdir -p "$WORK_DIR/models/han"
+mkdir -p "$WORK_DIR/results/han"
+mkdir -p "$WORK_DIR/pipeline_info"
+mkdir -p "$WORK_DIR/nextflow_logs"
 
-# Create directories if they don't exist
-mkdir -p $DATA_DIR
-mkdir -p $MODEL_DIR
-mkdir -p $RESULTS_DIR
+# Change to work directory so Nextflow logs go there
+cd $WORK_DIR
 
 # Launch the Nextflow pipeline
-nextflow run "$BASE_DIR/bin/ryans_helpers/han_pipeline.nf" \
-    -c "$BASE_DIR/bin/ryans_helpers/nextflow.config" \
+nextflow run "$REPO_DIR/bin/ryans_helpers/han_pipeline.nf" \
+    -c "$REPO_DIR/bin/ryans_helpers/nextflow.config" \
     -profile slurm \
-    --output_base $BASE_DIR \
-    --basenji_data $BASENJI_DATA_DIR \
-    -resume
+    --repo_dir $REPO_DIR \
+    --output_base $WORK_DIR \
+    -resume \
+    -with-trace "$WORK_DIR/pipeline_info/trace.txt" \
+    -with-timeline "$WORK_DIR/pipeline_info/timeline.html" \
+    -with-report "$WORK_DIR/pipeline_info/report.html" \
+    -with-dag "$WORK_DIR/pipeline_info/dag.html" \
+    -log "$WORK_DIR/nextflow_logs/nextflow.log"
 
-# Print completion message
-echo "Pipeline submission completed. Check status with 'squeue -u $USER'" 
+# Check if pipeline submission was successful
+if [ $? -eq 0 ]; then
+    echo "Pipeline successfully submitted. Check status with 'squeue -u $USER'"
+else
+    echo "Pipeline submission failed. Check logs in $WORK_DIR/nextflow_logs/"
+fi
