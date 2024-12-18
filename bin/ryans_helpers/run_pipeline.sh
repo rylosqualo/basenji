@@ -7,7 +7,7 @@ OUTPUT_DIR="/clusterfs/nilah/ryank/proj/compartments/20241218_HAN_basenji/result
 mkdir -p $OUTPUT_DIR
 
 # Launch the Nextflow pipeline
-nextflow run main.nf \
+nextflow run bin/ryans_helpers/han_pipeline.nf \
     -profile slurm \
     --output_base $OUTPUT_DIR \
     -resume
